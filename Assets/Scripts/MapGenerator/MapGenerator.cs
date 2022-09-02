@@ -5,11 +5,13 @@ using UnityEngine;
 public class MapGenerator : MonoBehaviour
 {
     public enum DrawMode { NoiseMap, ColorMap, MeshMap };
+    [Header("Render Mode")]
     public DrawMode drawMode = DrawMode.NoiseMap;
 
     [Header("기본설정")]
-    public int      width = 0;
-    public int      height = 0;
+    public const int       mapChunckSize = 241;
+    [Range(0,6)]
+    public int      levelOfDetail = 1;
     public float    noiseScale = 0.0f;
 
     [Header("세부설정")]
@@ -22,6 +24,10 @@ public class MapGenerator : MonoBehaviour
     public int      seed = 0;
     public Vector2  offset = Vector2.zero;
 
+    [Header("HeightMultiplier")]
+    public float            meshHeightMultiplier = 1.0f;
+    public AnimationCurve   meshHeightCurve;
+
     [Header("자동업데이트")]
     // 자동 업데이트를 시킬것인가?
     public bool isUpdated = false;
@@ -32,7 +38,7 @@ public class MapGenerator : MonoBehaviour
     public void GeneratorMap()
 	{
         // NoiseMap 생성
-        float[,] noiseMap = Noise.GenerateNoiseMap(width, height, seed, noiseScale, octaves, persistance, lacunarity, offset);
+        float[,] noiseMap = Noise.GenerateNoiseMap(mapChunckSize, mapChunckSize, seed, noiseScale, octaves, persistance, lacunarity, offset);
 
         MapDisplay display = FindObjectOfType<MapDisplay>();
         if(display == null) {
@@ -46,12 +52,12 @@ public class MapGenerator : MonoBehaviour
                 break;
             case DrawMode.ColorMap: {
                     Color[] colorMap = GeneratorColorMap(noiseMap);
-                    display.DrawTexture(TextureGenerator.TextureFromColorMap(colorMap, width, height));
+                    display.DrawTexture(TextureGenerator.TextureFromColorMap(colorMap, mapChunckSize, mapChunckSize));
                 }
                 break;
             case DrawMode.MeshMap: {
                     Color[] colorMap = GeneratorColorMap(noiseMap);
-                    display.DrawMesh(MeshGenerator.GenerateTerrainMesh(noiseMap), TextureGenerator.TextureFromColorMap(colorMap, width, height));
+                    display.DrawMesh(MeshGenerator.GenerateTerrainMesh(noiseMap, meshHeightMultiplier, meshHeightCurve, levelOfDetail), TextureGenerator.TextureFromColorMap(colorMap, mapChunckSize, mapChunckSize));
                 }
                 break;
 
@@ -62,15 +68,15 @@ public class MapGenerator : MonoBehaviour
     Color[] GeneratorColorMap(float[,] noiseMap)
 	{
         int regionSize = regions.Length;
-        Color[] colorMap = new Color[width * height];
-        for (int y = 0; y < height; ++y) {
-            for (int x = 0; x < width; ++x) {
+        Color[] colorMap = new Color[mapChunckSize * mapChunckSize];
+        for (int y = 0; y < mapChunckSize; ++y) {
+            for (int x = 0; x < mapChunckSize; ++x) {
                 float currentHeight = noiseMap[x, y];
 
                 // 구역을 검사해서 해당하는 색깔을 지정해준다.
                 for (int i = 0; i < regionSize; ++i) {
                     if (currentHeight <= regions[i].height) {
-                        colorMap[y * width + x] = regions[i].color;
+                        colorMap[y * mapChunckSize + x] = regions[i].color;
                         break;
                     }
                 }
@@ -82,18 +88,16 @@ public class MapGenerator : MonoBehaviour
 
 	private void OnValidate()
 	{
-		if(width < 1) {
-            width = 1;
-		}
-        if(height < 1) {
-            height = 1;
-		}
         if(lacunarity < 1) {
             lacunarity = 1;
         }
         if(octaves < 0) {
             octaves = 0;
         }
+
+        if(meshHeightMultiplier < 0.0f) {
+            meshHeightMultiplier = 0.001f;
+        } 
 	}
 }
 
